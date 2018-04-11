@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/Internal">
+        <file alias="loader.gif">images/ajax-loader.gif</file>
+        <file alias="standby.png">images/standby.png</file>
+        <file alias="codes.csv">codes.csv</file>
+        <file alias="UwTerminalX.crt">certificates/UwTerminalX_new.crt</file>
+    </qresource>
+</RCC>
