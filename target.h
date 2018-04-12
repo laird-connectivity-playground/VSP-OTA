@@ -44,7 +44,7 @@
 // Constants
 /******************************************************************************/
 //Version of the application
-const QString APP_VERSION                    = "0.94";
+const QString APP_VERSION                    = "0.95";
 
 //Download actions
 const quint8  DOWNLOAD_ACTION_NOTHING        = 0;
@@ -98,9 +98,9 @@ const quint8  STATUS_LOADING                 = 1;
 const int     LOADING_IMAGE_WIDTH            = 32;
 const int     LOADING_IMAGE_HEIGHT           = 32;
 
-//Minimum and maximum size of valid sb/uwc files (in bytes) - 128KB
+//Minimum and maximum size of valid sb/uwc files (in bytes) - 384KB
 const qint32  FILESIZE_MIN                   = 0;
-const qint32  FILESIZE_MAX                   = 131072;
+const qint32  FILESIZE_MAX                   = 393216;
 
 //Error code emitted when a downloaded file's size is not valid
 const qint16  DOWNLOAD_FILESIZE_ERROR        = -1;
