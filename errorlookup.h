@@ -52,13 +52,9 @@ public:
     DatabaseVersion(
         );
 
-signals:
-
-public slots:
-
 private:
-    QSettings *pErrorMessages;
-    bool IsOpen;
+    QSettings *stgErrorMessages;
+    bool bIsOpen;
 };
 
 #endif // ERRORLOOKUP_H

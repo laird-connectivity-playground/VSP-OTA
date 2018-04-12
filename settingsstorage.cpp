@@ -27,7 +27,7 @@
 SettingsStorage::SettingsStorage(QObject *parent) : QObject(parent)
 {
     //Constructor
-    SettingsHandle = NULL;
+    stgSettingsHandle = NULL;
 }
 
 //=============================================================================
@@ -36,9 +36,9 @@ SettingsStorage::~SettingsStorage(
     )
 {
     //Destructor
-    if (SettingsHandle != NULL)
+    if (stgSettingsHandle != NULL)
     {
-        delete SettingsHandle;
+        delete stgSettingsHandle;
     }
 }
 
@@ -49,14 +49,14 @@ SettingsStorage::LoadSettings(
     )
 {
     //Load settings
-    SettingsHandle = new QSettings(SETTINGS_FILENAME);
-    if (!SettingsHandle->isWritable())
+    stgSettingsHandle = new QSettings(SETTINGS_FILENAME);
+    if (!stgSettingsHandle->isWritable())
     {
         //Error whilst loading settings (not writable)
         return SETTINGS_LOAD_ERROR;
     }
 
-    if (!SettingsHandle->contains(SETTINGS_KEY_VERSION))
+    if (!stgSettingsHandle->contains(SETTINGS_KEY_VERSION))
     {
         //No saved settings present
         return SETTINGS_LOAD_NONE;
@@ -83,49 +83,53 @@ SettingsStorage::DefaultSettings(
     )
 {
     //Set default settings
-    SettingsHandle->clear();
-    SettingsHandle->setValue(SETTINGS_KEY_VERSION, APP_VERSION);
-    SettingsHandle->setValue(SETTINGS_KEY_UUID, SETTINGS_VALUE_UUID);
-    SettingsHandle->setValue(SETTINGS_KEY_TX_OFFSET, SETTINGS_VALUE_TX_OFFSET);
-    SettingsHandle->setValue(SETTINGS_KEY_RX_OFFSET, SETTINGS_VALUE_RX_OFFSET);
-    SettingsHandle->setValue(SETTINGS_KEY_MO_OFFSET, SETTINGS_VALUE_MO_OFFSET);
-    SettingsHandle->setValue(SETTINGS_KEY_MI_OFFSET, SETTINGS_VALUE_MI_OFFSET);
-    SettingsHandle->setValue(SETTINGS_KEY_RESTRICTUUID, SETTINGS_VALUE_RESTRICTUUID);
-    SettingsHandle->setValue(SETTINGS_KEY_PACKETSIZE, SETTINGS_VALUE_PACKETSIZE);
-    SettingsHandle->setValue(SETTINGS_KEY_ONLINEXCOMP, SETTINGS_VALUE_ONLINEXCOMP);
-    SettingsHandle->setValue(SETTINGS_KEY_SSL, SETTINGS_VALUE_SSL);
-    SettingsHandle->setValue(SETTINGS_KEY_LASTDIR, SETTINGS_VALUE_LASTDIR);
-    SettingsHandle->setValue(SETTINGS_KEY_DELFILE, SETTINGS_VALUE_DELFILE);
-    SettingsHandle->setValue(SETTINGS_KEY_VERIFYFILE, SETTINGS_VALUE_VERIFYFILE);
-    SettingsHandle->setValue(SETTINGS_KEY_DOWNLOADACTION, SETTINGS_VALUE_DOWNLOADACTION);
-    SettingsHandle->setValue(SETTINGS_KEY_SKIPDLDISPLAY, SETTINGS_VALUE_SKIPDLDISPLAY);
-    SettingsHandle->setValue(SETTINGS_KEY_SCROLLBACKSIZE, SETTINGS_VALUE_SCROLLBACKSIZE);
-    SettingsHandle->setValue(SETTINGS_KEY_CHECKFWVERSION, SETTINGS_VALUE_CHECKFWVERSION);
+    stgSettingsHandle->clear();
+    stgSettingsHandle->setValue(SETTINGS_KEY_VERSION, APP_VERSION);
+    stgSettingsHandle->setValue(SETTINGS_KEY_UUID, SETTINGS_VALUE_UUID);
+    stgSettingsHandle->setValue(SETTINGS_KEY_TX_OFFSET, SETTINGS_VALUE_TX_OFFSET);
+    stgSettingsHandle->setValue(SETTINGS_KEY_RX_OFFSET, SETTINGS_VALUE_RX_OFFSET);
+    stgSettingsHandle->setValue(SETTINGS_KEY_MO_OFFSET, SETTINGS_VALUE_MO_OFFSET);
+    stgSettingsHandle->setValue(SETTINGS_KEY_MI_OFFSET, SETTINGS_VALUE_MI_OFFSET);
+    stgSettingsHandle->setValue(SETTINGS_KEY_RESTRICTUUID, SETTINGS_VALUE_RESTRICTUUID);
+#ifdef Q_OS_ANDROID
+    stgSettingsHandle->setValue(SETTINGS_KEY_COMPATIBLESCAN, SETTINGS_VALUE_COMPATIBLESCAN);
+#endif
+    stgSettingsHandle->setValue(SETTINGS_KEY_PACKETSIZE, SETTINGS_VALUE_PACKETSIZE);
+    stgSettingsHandle->setValue(SETTINGS_KEY_ONLINEXCOMP, SETTINGS_VALUE_ONLINEXCOMP);
+    stgSettingsHandle->setValue(SETTINGS_KEY_SSL, SETTINGS_VALUE_SSL);
+    stgSettingsHandle->setValue(SETTINGS_KEY_LASTDIR, SETTINGS_VALUE_LASTDIR);
+    stgSettingsHandle->setValue(SETTINGS_KEY_DELFILE, SETTINGS_VALUE_DELFILE);
+    stgSettingsHandle->setValue(SETTINGS_KEY_VERIFYFILE, SETTINGS_VALUE_VERIFYFILE);
+    stgSettingsHandle->setValue(SETTINGS_KEY_DOWNLOADACTION, SETTINGS_VALUE_DOWNLOADACTION);
+    stgSettingsHandle->setValue(SETTINGS_KEY_SKIPDLDISPLAY, SETTINGS_VALUE_SKIPDLDISPLAY);
+    stgSettingsHandle->setValue(SETTINGS_KEY_SCROLLBACKSIZE, SETTINGS_VALUE_SCROLLBACKSIZE);
+    stgSettingsHandle->setValue(SETTINGS_KEY_CHECKFWVERSION, SETTINGS_VALUE_CHECKFWVERSION);
+    stgSettingsHandle->setValue(SETTINGS_KEY_CHECKFREESPACE, SETTINGS_VALUE_CHECKFREESPACE);
 }
 
 //=============================================================================
 //=============================================================================
 QString
 SettingsStorage::GetString(
-    QString Key
+    QString strKey
     )
 {
     //Get a string value
-    return SettingsHandle->value(Key).toString();
+    return stgSettingsHandle->value(strKey).toString();
 }
 
 //=============================================================================
 //=============================================================================
 void
 SettingsStorage::SetString(
-    QString Key,
-    QString NewValue
+    QString strKey,
+    QString strNewValue
     )
 {
     //Set a string value
-    if (!SettingsHandle->value(Key).isValid() || SettingsHandle->value(Key).isNull() || SettingsHandle->value(Key).toString() != NewValue)
+    if (!stgSettingsHandle->value(strKey).isValid() || stgSettingsHandle->value(strKey).isNull() || stgSettingsHandle->value(strKey).toString() != strNewValue)
     {
-        SettingsHandle->setValue(Key, NewValue);
+        stgSettingsHandle->setValue(strKey, strNewValue);
     }
 }
 
@@ -133,25 +137,25 @@ SettingsStorage::SetString(
 //=============================================================================
 qint8
 SettingsStorage::GetInt(
-    QString Key
+    QString strKey
     )
 {
     //Get a signed integer value
-    return SettingsHandle->value(Key).toInt();
+    return stgSettingsHandle->value(strKey).toInt();
 }
 
 //=============================================================================
 //=============================================================================
 void
 SettingsStorage::SetInt(
-    QString Key,
-    qint8 NewValue
+    QString strKey,
+    qint8 nNewValue
     )
 {
     //Set a signed integer value
-    if (!SettingsHandle->value(Key).isValid() || SettingsHandle->value(Key).isNull() || SettingsHandle->value(Key).toInt() != NewValue)
+    if (!stgSettingsHandle->value(strKey).isValid() || stgSettingsHandle->value(strKey).isNull() || stgSettingsHandle->value(strKey).toInt() != nNewValue)
     {
-        SettingsHandle->setValue(Key, NewValue);
+        stgSettingsHandle->setValue(strKey, nNewValue);
     }
 }
 
@@ -159,25 +163,25 @@ SettingsStorage::SetInt(
 //=============================================================================
 quint8
 SettingsStorage::GetUInt(
-    QString Key
+    QString strKey
     )
 {
     //Get an unsigned integer value
-    return SettingsHandle->value(Key).toUInt();
+    return stgSettingsHandle->value(strKey).toUInt();
 }
 
 //=============================================================================
 //=============================================================================
 void
 SettingsStorage::SetUInt(
-    QString Key,
-    quint8 NewValue
+    QString strKey,
+    quint8 unNewValue
     )
 {
     //Set an unsigned integer value
-    if (!SettingsHandle->value(Key).isValid() || SettingsHandle->value(Key).isNull() || SettingsHandle->value(Key).toUInt() != NewValue)
+    if (!stgSettingsHandle->value(strKey).isValid() || stgSettingsHandle->value(strKey).isNull() || stgSettingsHandle->value(strKey).toUInt() != unNewValue)
     {
-        SettingsHandle->setValue(Key, NewValue);
+        stgSettingsHandle->setValue(strKey, unNewValue);
     }
 }
 
@@ -185,25 +189,25 @@ SettingsStorage::SetUInt(
 //=============================================================================
 bool
 SettingsStorage::GetBool(
-    QString Key
+    QString strKey
     )
 {
     //Get a bool value
-    return SettingsHandle->value(Key).toBool();
+    return stgSettingsHandle->value(strKey).toBool();
 }
 
 //=============================================================================
 //=============================================================================
 void
 SettingsStorage::SetBool(
-    QString Key,
-    bool NewValue
+    QString strKey,
+    bool bNewValue
     )
 {
     //Set a bool value
-    if (!SettingsHandle->value(Key).isValid() || SettingsHandle->value(Key).isNull() || SettingsHandle->value(Key).toBool() != NewValue)
+    if (!stgSettingsHandle->value(strKey).isValid() || stgSettingsHandle->value(strKey).isNull() || stgSettingsHandle->value(strKey).toBool() != bNewValue)
     {
-        SettingsHandle->setValue(Key, NewValue);
+        stgSettingsHandle->setValue(strKey, bNewValue);
     }
 }
 

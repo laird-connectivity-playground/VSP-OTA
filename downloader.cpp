@@ -45,7 +45,7 @@ Downloader::Downloader(QWidget *parent) : QWidget(parent)
     baFileData = NULL;
     bEnableSSL = false;
 
-    //
+    //No pending request
     nmrLastRequest = NULL;
 }
 
@@ -175,7 +175,7 @@ Downloader::replyFinished(
                 {
                     //Server responded with error - device not supported
 #ifdef ENABLE_DEBUG
-                    qDebug() << "e1";
+                    qDebug() << "Error: Device not supported.";
 #endif
 
                     //Pass this back to the parent

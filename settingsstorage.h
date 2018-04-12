@@ -56,43 +56,43 @@ public:
         );
     QString
     GetString(
-        QString Key
+        QString strKey
         );
     void
     SetString(
-        QString Key,
-        QString NewValue
+        QString strKey,
+        QString strNewValue
         );
     qint8
     GetInt(
-        QString Key
+        QString strKey
         );
     void
     SetInt(
-        QString Key,
-        qint8 NewValue
+        QString strKey,
+        qint8 nNewValue
         );
     quint8
     GetUInt(
-        QString Key
+        QString strKey
         );
     void
     SetUInt(
-        QString Key,
-        quint8 NewValue
+        QString strKey,
+        quint8 unNewValue
         );
     bool
     GetBool(
-        QString Key
+        QString strKey
         );
     void
     SetBool(
-        QString Key,
-        bool NewValue
+        QString strKey,
+        bool bNewValue
         );
 
 private:
-    QSettings *SettingsHandle;
+    QSettings *stgSettingsHandle;
 };
 
 #endif // SETTINGSSTORAGE_H

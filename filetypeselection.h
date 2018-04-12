@@ -73,12 +73,12 @@ private slots:
 signals:
     void
     FileTypeChanged(
-        qint8 NewType,
-        QString Data
+        qint8 nNewType,
+        QString strData
         );
     void
     DisplayMessage(
-        QString Message,
+        QString strMessage,
         bool bToastLong
         );
 
@@ -87,6 +87,7 @@ private:
 #ifdef Q_OS_ANDROID
     bool bAndroidTextHeightFixed;
 #endif
+    QRegularExpression rxpURL;
 };
 
 #endif // FILETYPESELECTION_H

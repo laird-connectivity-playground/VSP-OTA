@@ -44,7 +44,7 @@
 // Constants
 /******************************************************************************/
 //Version of the application
-const QString APP_VERSION                    = "0.93";
+const QString APP_VERSION                    = "0.94";
 
 //Download actions
 const quint8  DOWNLOAD_ACTION_NOTHING        = 0;
@@ -64,8 +64,7 @@ const QString SETTINGS_VALUE_MO_OFFSET       = "2002";
 const QString SETTINGS_KEY_MI_OFFSET         = "MiChar";
 const QString SETTINGS_VALUE_MI_OFFSET       = "2003";
 const QString SETTINGS_KEY_RESTRICTUUID      = "RestrictUUID";
-//const bool    SETTINGS_VALUE_RESTRICTUUID    = true;
-const bool    SETTINGS_VALUE_RESTRICTUUID    = false;
+const bool    SETTINGS_VALUE_RESTRICTUUID    = true;
 const QString SETTINGS_KEY_COMPATIBLESCAN    = "CompatibleScan";
 const bool    SETTINGS_VALUE_COMPATIBLESCAN  = false;
 const QString SETTINGS_KEY_PACKETSIZE        = "PacketSize";
@@ -73,15 +72,13 @@ const quint8  SETTINGS_VALUE_PACKETSIZE      = 20;
 const QString SETTINGS_KEY_ONLINEXCOMP       = "OnlineXComp";
 const bool    SETTINGS_VALUE_ONLINEXCOMP     = true;
 const QString SETTINGS_KEY_SSL               = "EnableSSL";
-const bool    SETTINGS_VALUE_SSL             = false;
+const bool    SETTINGS_VALUE_SSL             = true;
 const QString SETTINGS_KEY_LASTDIR           = "LastDir";
 const QString SETTINGS_VALUE_LASTDIR         = "";
 const QString SETTINGS_KEY_DELFILE           = "DelFile";
 const bool    SETTINGS_VALUE_DELFILE         = true;
 const QString SETTINGS_KEY_VERIFYFILE        = "VerifyFile";
 const bool    SETTINGS_VALUE_VERIFYFILE      = true;
-//const QString SETTINGS_KEY_DCAFTER           = "DCAfter";
-//const bool    SETTINGS_VALUE_DCAFTER         = true;
 const QString SETTINGS_KEY_DOWNLOADACTION    = "DownloadAction";
 const quint8  SETTINGS_VALUE_DOWNLOADACTION  = DOWNLOAD_ACTION_DISCONNECT;
 const QString SETTINGS_KEY_SKIPDLDISPLAY     = "SkipDownloadDisplay";
@@ -169,6 +166,9 @@ const qint8   SETTINGS_SAVE_ERROR            = 1;
 
 //Filename of settings file (on supported platforms)
 const QString SETTINGS_FILENAME              = "OTA_VSP.ini";
+
+//Specifies the maximum length of a command sent to the module
+const qint8   MODULE_MAX_COMMAND_LENGTH      = 56;
 
 #ifdef Q_OS_ANDROID
 //Duration for displaying notifications on Android (1 = long, 0 = short)

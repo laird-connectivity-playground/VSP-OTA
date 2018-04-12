@@ -334,8 +334,8 @@ private:
     QLowEnergyCharacteristic blechrTXChar; //TX characteristic
     QLowEnergyCharacteristic blechrMIChar; //Modem in characteristic
     QLowEnergyCharacteristic blechrMOChar; //Modem out characteristic
-    QBluetoothDeviceDiscoveryAgent *ddaDiscoveryAgent; //
-    QLowEnergyController *lecBLEController; //
+    QBluetoothDeviceDiscoveryAgent *ddaDiscoveryAgent; //Bluetooth device discovery agent
+    QLowEnergyController *lecBLEController; //Bluetooth Low Energy controller
 
     //Status bar objects
     QMovie *movieLoadingAnimation;

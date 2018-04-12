@@ -47,12 +47,7 @@ namespace Ui
 
 typedef struct
 {
-#ifdef Q_OS_MAC
-    QBluetoothUuid DeviceUUID;
-#else
-    QBluetoothAddress DeviceAddress;
-#endif
-    QBluetoothDeviceInfo DeviceInfo;
+    QBluetoothDeviceInfo diDeviceInfo;
 } DeviceInfoStruct;
 
 /******************************************************************************/
@@ -71,27 +66,27 @@ public:
         );
     void
     AddDevice(
-        QBluetoothDeviceInfo DeviceInfo
+        QBluetoothDeviceInfo diDeviceInfo
         );
     void
     ClearDevices(
         );
     void
     SetStatus(
-        qint8 NewStatus
+        qint8 nNewStatus
         );
 
 signals:
     void
     DeviceSelected(
-        QBluetoothDeviceInfo DeviceInfo
+        QBluetoothDeviceInfo diDeviceInfo
         );
     void
     WindowClosed(
         );
     void
     ScanningFinished(
-        quint8 Status
+        quint8 unStatus
         );
 
 private slots:
@@ -103,12 +98,12 @@ private slots:
         );
     void
     on_list_Devices_itemDoubleClicked(
-        QListWidgetItem *item
+        QListWidgetItem *
         );
 
 private:
     Ui::ScanSelection *ui;
-    QList<DeviceInfoStruct> DeviceArray;
+    QList<DeviceInfoStruct> lstDeviceArray;
 };
 
 #endif // SCANSELECTION_H

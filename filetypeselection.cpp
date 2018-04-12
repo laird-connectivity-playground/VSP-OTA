@@ -30,6 +30,9 @@ FileTypeSelection::FileTypeSelection(QWidget *parent) : QDialog(parent), ui(new 
     //Constructor
     ui->setupUi(this);
 
+    //Currently not implemented
+    ui->radio_Dropbox->deleteLater();
+
 #ifdef Q_OS_ANDROID
     //Make the dialogue stand out on android platforms
     QPalette palCPalette = this->palette();
@@ -40,15 +43,16 @@ FileTypeSelection::FileTypeSelection(QWidget *parent) : QDialog(parent), ui(new 
     palCPalette.setColor(QPalette::Active, QPalette::Window, colCColor);
     this->setPalette(palCPalette);
 
-    //Remove dropbox option
-    ui->radio_Dropbox->deleteLater();
-
     //Text height not yet fixed
     bAndroidTextHeightFixed = false;
 #else
     //Remove android information label for non-android builds
     ui->label_AndroidInfo->deleteLater();
 #endif
+
+    //Setup URL verification regular expression
+    rxpURL.setPattern("http(s)?://(.*?)/(.*).([a-z0-9]{2,4})");
+    rxpURL.setPatternOptions(QRegularExpression::MultilineOption | QRegularExpression::CaseInsensitiveOption);
 }
 
 //=============================================================================
@@ -67,40 +71,40 @@ FileTypeSelection::on_buttons_accepted(
     )
 {
     //Accept button has been clicked
-    qint8 FileTypeSelected;
+    qint8 unFileTypeSelected = -5;
     if (ui->radio_LocalFile->isChecked())
     {
         //Local file
-        FileTypeSelected = FILE_TYPE_LOCALFILE;
+        unFileTypeSelected = FILE_TYPE_LOCALFILE;
     }
     else if (ui->radio_RemoteURL->isChecked())
     {
         //Remote URL - check that URL is valid
-        QRegularExpression M1;
-        M1.setPattern("http(s)?://(.*?)/(.*).([a-z0-9]{2,4})");
-        M1.setPatternOptions(QRegularExpression::MultilineOption | QRegularExpression::CaseInsensitiveOption);
-        QRegularExpressionMatch M1Match = M1.match(ui->edit_RemoteFileURL->text());
+        QRegularExpressionMatch rexpmURLMatch = rxpURL.match(ui->edit_RemoteFileURL->text());
 
-        if (!M1Match.hasMatch())
+        if (!rexpmURLMatch.hasMatch())
         {
-            //Selected filetype not valid
+            //Selected filetype or URL not valid
             emit DisplayMessage("Supplied URL to .sb/.uwc/.txt file is not valid.", false);
             return;
         }
 
         //Set type
-        FileTypeSelected = FILE_TYPE_REMOTEURL;
+        unFileTypeSelected = FILE_TYPE_REMOTEURL;
     }
 #ifndef Q_OS_ANDROID
     else if (ui->radio_Dropbox->isChecked())
     {
         //Dropbox
-        FileTypeSelected = FILE_TYPE_DROPBOX;
+        unFileTypeSelected = FILE_TYPE_DROPBOX;
     }
 #endif
 
     //Pass this information back to the parent
-    emit FileTypeChanged(FileTypeSelected, (FileTypeSelected == FILE_TYPE_REMOTEURL ? ui->edit_RemoteFileURL->text() : NULL));
+    if (unFileTypeSelected != -5)
+    {
+        emit FileTypeChanged(unFileTypeSelected , (unFileTypeSelected  == FILE_TYPE_REMOTEURL ? ui->edit_RemoteFileURL->text() : NULL));
+    }
     this->close();
 }
 
@@ -132,7 +136,7 @@ void
 FileTypeSelection::FixBrokenQtTextHeight(
     )
 {
-    //Fixes broken text height on android
+    //Fixes broken text height on android QTBUG-67487
     if (bAndroidTextHeightFixed == false)
     {
         QFontMetrics fmFontMet(ui->label_AndroidInfo->font());

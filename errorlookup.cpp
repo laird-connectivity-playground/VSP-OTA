@@ -27,12 +27,12 @@
 ErrorLookup::ErrorLookup(QObject *parent) : QObject(parent)
 {
     //Constructor
-    IsOpen = false;
+    bIsOpen = false;
     if (QFile::exists(":/Internal/codes.csv"))
     {
         //Internal error code file exists - open it
-        IsOpen = true;
-        pErrorMessages = new QSettings(QString(":/Internal/codes.csv"), QSettings::IniFormat);
+        bIsOpen = true;
+        stgErrorMessages = new QSettings(QString(":/Internal/codes.csv"), QSettings::IniFormat);
     }
 }
 
@@ -42,9 +42,9 @@ ErrorLookup::~ErrorLookup(
     )
 {
     //Destructor
-    if (IsOpen == true)
+    if (bIsOpen == true)
     {
-        delete pErrorMessages;
+        delete stgErrorMessages;
     }
 }
 
@@ -56,11 +56,11 @@ ErrorLookup::LookupError(
     )
 {
     //Returns the string of an error code
-    if (IsOpen == false)
+    if (bIsOpen == false)
     {
         return "Undefined Error Code";
     }
-    return pErrorMessages->value(QString::number(nErrorCode), "Undefined Error Code").toString();
+    return stgErrorMessages->value(QString::number(nErrorCode), "Undefined Error Code").toString();
 }
 
 //=============================================================================
@@ -70,11 +70,11 @@ ErrorLookup::DatabaseVersion(
     )
 {
     //Returns the version of the error code database
-    if (IsOpen == false)
+    if (bIsOpen == false)
     {
         return "(Not Loaded)";
     }
-    return pErrorMessages->value("Version", "0.00").toString();
+    return stgErrorMessages->value("Version", "0.00").toString();
 }
 
 /******************************************************************************/

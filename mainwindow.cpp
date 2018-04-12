@@ -49,7 +49,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->btn_Download->setVisible(false);
     ui->btn_ModuleInfo->setVisible(false);
 
-    //Not in a mode
+    //Not busy
     nCurrentMode = MAIN_MODE_IDLE;
     ui->btn_Cancel->setEnabled(false);
 
@@ -84,10 +84,22 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(dlgScanDialog, SIGNAL(WindowClosed()), this, SLOT(CancelScan()));
     connect(dlgScanDialog, SIGNAL(ScanningFinished(quint8)), this, SLOT(SetLoadingStatus(quint8)));
 
-    //Setup file location selection dialogue
+    //Setup file location selection dialog
     dlgFileTypeDialog = new FileTypeSelection(this);
     connect(dlgFileTypeDialog, SIGNAL(DisplayMessage(QString,bool)), this, SLOT(ExternalToastMessage(QString,bool)));
     connect(dlgFileTypeDialog, SIGNAL(FileTypeChanged(qint8,QString)), this, SLOT(FileTypeChanged(qint8,QString)));
+
+    //Setup settings dialog
+    dlgSettingsView = new SettingsDialog(this);
+    connect(dlgSettingsView, SIGNAL(SaveSettings(QString,QString,QString,QString,QString,bool,
+#ifdef Q_OS_ANDROID
+        bool,
+#endif
+        quint8,bool,bool,quint8,bool,quint8,bool,bool,bool,bool)), this, SLOT(SettingsUpdated(QString,QString,QString,QString,QString,bool,
+#ifdef Q_OS_ANDROID
+        bool,
+#endif
+        quint8,bool,bool,quint8,bool,quint8,bool,bool,bool,bool)));
 
     //Setup disconnect clean up timer
     tmrDisconnectCleanUpTimer = new QTimer();
@@ -106,8 +118,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     tmrResponseTimeoutTimer->setInterval(TIMEOUT_TIMER_INTERVAL);
     tmrResponseTimeoutTimer->setSingleShot(true);
     connect(tmrResponseTimeoutTimer, SIGNAL(timeout()), this, SLOT(TimeoutTimerElapsed()));
-
-    UpdateTxRx();
 
     //Connect the downloader signals
     dwnDownloaderHandle = new Downloader();
@@ -159,6 +169,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     }
 #endif
 
+#ifdef Q_OS_ANDROID
+    //Remove on-screen toast notification label
+    ui->label_Notification->deleteLater();
+#endif
+
     //Setup regular expression objects
     rxpDevName.setPattern("\t0\t([a-zA-Z0-9\\-_]{3,20})\r");
     rxpDevName.setPatternOptions(QRegularExpression::MultilineOption);
@@ -177,8 +192,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     QFontMetrics fmFontMet(ui->statusBar->font());
     nStatusBarSpaces = ceilf((32.0 / (float)fmFontMet.width(" ")));
 
+#if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
     //Show application version
     ui->statusBar->showMessage(QString(" ").repeated(nStatusBarSpaces).append("Laird OTA VSP, v").append(APP_VERSION));
+#endif
 
     //Check if device supports 2M PHY
     bIs2MPhySupported = false;
@@ -217,6 +234,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 MainWindow::~MainWindow(
     )
 {
+    //Destructor
     if (blesvcVSPService != NULL)
     {
         //Clean up VSP service
@@ -263,18 +281,17 @@ MainWindow::~MainWindow(
     delete tmrDisplayUpdateTimer;
     delete tmrResponseTimeoutTimer;
 
-    disconnect(this, SLOT(ProcessFileData(bool,qint16,QByteArray)));
-
     if (dwnDownloaderHandle != NULL)
     {
         //Clean up downloader object
-        disconnect(dwnDownloaderHandle, SIGNAL(XCompileComplete(QByteArray*)));
+        disconnect(dwnDownloaderHandle, SIGNAL(XCompileComplete(bool,qint16,QByteArray)));
         disconnect(dwnDownloaderHandle, SIGNAL(FileDownloaded(bool,qint16,QByteArray)));
         disconnect(dwnDownloaderHandle, SIGNAL(FirmwareResponse(bool,qint16,QString)));
         disconnect(dwnDownloaderHandle, SIGNAL(StatusChanged(quint8)));
         delete dwnDownloaderHandle;
     }
 
+    //Clean up BLE objects
     disconnect(this, SLOT(FoundDevice(QBluetoothDeviceInfo)));
     disconnect(this, SLOT(BTError(QBluetoothDeviceDiscoveryAgent::Error)));
     disconnect(this, SLOT(BTFinishedScan()));
@@ -282,6 +299,7 @@ MainWindow::~MainWindow(
     delete dlgScanDialog;
     delete ddaDiscoveryAgent;
 
+    //Clean up checksum variables if used
     if (strChecksumString != NULL)
     {
         delete strChecksumString;
@@ -297,6 +315,7 @@ MainWindow::~MainWindow(
 #ifdef Q_OS_ANDROID
     if (afdFileDialog != NULL)
     {
+        //Clean up android file selection dialog
         disconnect(this, SLOT(AndroidOpen(QString,QByteArray)));
         delete afdFileDialog;
         afdFileDialog = NULL;
@@ -305,6 +324,7 @@ MainWindow::~MainWindow(
 
     if (dlgSettingsView != NULL)
     {
+        //Clean up settings window
         disconnect(this, SLOT(SettingsUpdated(QString,QString,QString,QString,QString,bool,
 #ifdef Q_OS_ANDROID
             bool,
@@ -314,12 +334,14 @@ MainWindow::~MainWindow(
         dlgSettingsView = NULL;
     }
 
+    //Remove added objects
     ui->statusBar->removeWidget(labelStatusBarLoader);
     delete labelStatusBarLoader;
     movieLoadingAnimation->stop();
     delete movieLoadingAnimation;
     delete pixmapStandbyPicture;
 
+    //Clean up the UI
     delete ui;
 }
 
@@ -511,6 +533,7 @@ MainWindow::BLEDisconnected(
         strChecksumString = NULL;
     }
 
+    //Clean up BLE events
     disconnect(this, SLOT(BLEConnected()));
     disconnect(this, SLOT(BLEDisconnected()));
     disconnect(this, SLOT(BLEDiscoveryFinished()));
@@ -520,6 +543,7 @@ MainWindow::BLEDisconnected(
 
     if (blesvcVSPService != NULL)
     {
+        //Clean up VSP service
         disconnect(this, SLOT(VSPServiceCharacteristicChanged(QLowEnergyCharacteristic,QByteArray)));
         disconnect(this, SLOT(VSPServiceCharacteristicWritten(QLowEnergyCharacteristic,QByteArray)));
         disconnect(this, SLOT(VSPServiceDescriptorWritten(QLowEnergyDescriptor,QByteArray)));
@@ -531,6 +555,7 @@ MainWindow::BLEDisconnected(
 
     if (lecBLEController != NULL)
     {
+        //Start disconnect clean up timer
         tmrDisconnectCleanUpTimer->start();
     }
 
@@ -563,7 +588,7 @@ MainWindow::BLEDiscovered(
     QBluetoothUuid
     )
 {
-    //
+    //This function is unused as the finished signal is used instead
 }
 
 //=============================================================================
@@ -619,12 +644,14 @@ MainWindow::BLEDiscoveryFinished(
         return;
     }
 
+    //Connect VSP server signals
     connect(blesvcVSPService, SIGNAL(characteristicChanged(QLowEnergyCharacteristic,QByteArray)), this, SLOT(VSPServiceCharacteristicChanged(QLowEnergyCharacteristic,QByteArray)));
     connect(blesvcVSPService, SIGNAL(characteristicWritten(QLowEnergyCharacteristic,QByteArray)), this, SLOT(VSPServiceCharacteristicWritten(QLowEnergyCharacteristic,QByteArray)));
     connect(blesvcVSPService, SIGNAL(descriptorWritten(QLowEnergyDescriptor,QByteArray)), this, SLOT(VSPServiceDescriptorWritten(QLowEnergyDescriptor,QByteArray)));
     connect(blesvcVSPService, SIGNAL(error(QLowEnergyService::ServiceError)), this, SLOT(VSPServiceError(QLowEnergyService::ServiceError)));
     connect(blesvcVSPService, SIGNAL(stateChanged(QLowEnergyService::ServiceState)), this, SLOT(VSPServiceStateChanged(QLowEnergyService::ServiceState)));
 
+    //Discover service details
     blesvcVSPService->discoverDetails();
 }
 
@@ -774,8 +801,9 @@ MainWindow::BLEStateChanged(
     QLowEnergyController::ControllerState lesNewState
     )
 {
+    //BLE status changed - unused
 #ifdef ENABLE_DEBUG
-    qDebug() << "state: " << lesNewState;
+    qDebug() << "State: " << lesNewState;
 #endif
 }
 
@@ -787,11 +815,11 @@ MainWindow::VSPServiceCharacteristicChanged(
     QByteArray baData
     )
 {
-    //
+    //VSP characteristic data received
     if (lecCharacteristic == blechrTXChar)
     {
 #ifdef ENABLE_DEBUG
-        qDebug() << "TX Changed";
+        qDebug() << "Tx Changed";
 #endif
         baRecBuffer.append(baData.replace('\0', "+"));
         TrucateRecBuffer();
@@ -876,11 +904,8 @@ MainWindow::VSPServiceCharacteristicChanged(
                         }
                     }
 
-                    //
-                    baRecBuffer.append("Download match");
-                    baRecBuffer.append(rexpmM1Match.captured(1));
-                    baRecBuffer.append(rexpmM2Match.captured(1));
-                    baRecBuffer.append(rexpmM2Match.captured(2));
+                    //Send the XCompilation request
+                    baRecBuffer.append("Found device: ").append(rexpmM1Match.captured(1)).append(", XCompiler hash: ").append(rexpmM2Match.captured(1)).append(" ").append(rexpmM2Match.captured(2)).append("\r\n");
                     nModuleFreeSpace = rexpmM3Match.captured(2).toUInt();
                     UpdateDisplay();
                     nCurrentMode = MAIN_MODE_XCOMPILING;
@@ -892,7 +917,17 @@ MainWindow::VSPServiceCharacteristicChanged(
                 }
                 else
                 {
-                    ui->edit_Display->appendPlainText("No match");
+                    //Issue with received data
+                    baRecBuffer.append("An error has occured, please report this issue. ID: 1, rxpDevName: (").append((rexpmM1Match.hasMatch() == true ? "1" : "0")).append(") ").append(rexpmM1Match.captured(0)).append(", rxpXCompiler: (").append((rexpmM2Match.hasMatch() == true ? "1" : "0")).append(") ").append(rexpmM2Match.captured(0)).append(", rxpFreeSpace: (").append((rexpmM3Match.hasMatch() == true ? "1" : "0")).append(") ").append(rexpmM3Match.captured(0)).append(", CheckFreeSpace: ").append((stgSettingsHandle->GetBool(SETTINGS_KEY_CHECKFREESPACE) == true ? "1" : "0")).append("\r\n");
+                    UpdateDisplay();
+
+                    //Set status back to idle
+                    nCurrentMode = MAIN_MODE_IDLE;
+                    baVersionResponse.clear();
+
+                    //Disable cancel button and enable download filename edit
+                    ui->btn_Cancel->setEnabled(false);
+                    ui->edit_DownloadName->setReadOnly(false);
                 }
             }
         }
@@ -911,8 +946,8 @@ MainWindow::VSPServiceCharacteristicChanged(
                 baVersionResponse.clear();
                 nCurrentMode = MAIN_MODE_IDLE;
                 SetLoadingStatus(STATUS_STANDBY);
-                QString ErrorMsg = elErrorLookupHandle.LookupError(rexpmM1Match.captured(1).toUInt(nullptr, 16));
-                gstrToastString = QString("Error retrieving storage space (").append(rexpmM1Match.captured(1)).append(") ").append(ErrorMsg);
+                QString strErrorMsg = elErrorLookupHandle.LookupError(rexpmM1Match.captured(1).toUInt(nullptr, 16));
+                gstrToastString = QString("Error retrieving storage space (").append(rexpmM1Match.captured(1)).append(") ").append(strErrorMsg);
                 ToastMessage(false);
 
                 //Disable cancel button and enable download filename edit
@@ -997,23 +1032,33 @@ MainWindow::VSPServiceCharacteristicChanged(
                 }
                 else
                 {
-                    ui->edit_Display->appendPlainText("No match");
+                    //Issue with received data
+                    baRecBuffer.append("An error has occured, please report this issue. ID: 2, rxpDevName: (").append((rexpmM1Match.hasMatch() == true ? "1" : "0")).append(") ").append(rexpmM1Match.captured(0)).append(", rxpFreeSpace: (").append((rexpmM2Match.hasMatch() == true ? "1" : "0")).append(") ").append(rexpmM2Match.captured(0)).append("\r\n");
+                    UpdateDisplay();
+
+                    //Set status back to idle
+                    nCurrentMode = MAIN_MODE_IDLE;
+                    baVersionResponse.clear();
+
+                    //Disable cancel button and enable download filename edit
+                    ui->btn_Cancel->setEnabled(false);
+                    ui->edit_DownloadName->setReadOnly(false);
                 }
             }
         }
         else if (nCurrentMode == MAIN_MODE_DOWNLOADING || nCurrentMode == MAIN_MODE_VERIFYING)
         {
-            //
+            //Currently downloading or verifying downloaded application
             baVersionResponse.append(baData);
 
-            //
+            //Check if we are near the near the end of the transmission
             if (nCurrentMode == MAIN_MODE_DOWNLOADING && baOutputBuffer.length() > 25)
             {
                 //Not near the end of the output so remove the success code from the buffer
                 baVersionResponse.replace("\n00\r", "");
             }
 
-            //
+            //Check for errors
             QRegularExpressionMatch rexpmM1Match = rxpErrorCode.match(baVersionResponse);
 
             if (rexpmM1Match.hasMatch())
@@ -1037,7 +1082,9 @@ MainWindow::VSPServiceCharacteristicChanged(
 
             if (nCurrentMode == MAIN_MODE_VERIFYING)
             {
-qDebug() << "Buf: " << baVersionResponse;
+#ifdef ENABLE_DEBUG
+                qDebug() << "Buf: " << baVersionResponse;
+#endif
                 if (stgSettingsHandle->GetBool(SETTINGS_KEY_VERIFYFILE) == true)
                 {
                     //Check for file listing response
@@ -1218,9 +1265,16 @@ qDebug() << "Buf: " << baVersionResponse;
                 }
                 else
                 {
-                    ui->edit_Display->appendPlainText("No match");
+                    //Error with received data
+                    baRecBuffer.append("An error has occured, please report this issue. ID: 3, rxpDevName: (").append((rexpmM2Match.hasMatch() == true ? "1" : "0")).append(") ").append(rexpmM2Match.captured(0)).append(", rxpFirmware: (").append((rexpmM3Match.hasMatch() == true ? "1" : "0")).append(") ").append(rexpmM3Match.captured(0)).append(", rxpFreeSpace: (").append((rexpmM4Match.hasMatch() == true ? "1" : "0")).append(") ").append(rexpmM4Match.captured(0)).append("\r\n");
                     UpdateDisplay();
+
+                    //Set status back to idle
                     nCurrentMode = MAIN_MODE_IDLE;
+                    baVersionResponse.clear();
+
+                    //Enable download filename edit
+                    ui->edit_DownloadName->setReadOnly(false);
                 }
 
                 //Disable cancel button
@@ -1234,6 +1288,7 @@ qDebug() << "Buf: " << baVersionResponse;
         {
             if (lecCharacteristic == blechrMOChar)
             {
+                //Modem characteristic update
 #ifdef ENABLE_DEBUG
                 qDebug() << baData.toHex();
 #endif
@@ -1241,7 +1296,11 @@ qDebug() << "Buf: " << baVersionResponse;
                 {
                     //Go
                     bVSPBlocked = false;
-                    blesvcVSPService->writeCharacteristic(blechrRXChar, baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE)));
+                    if (!baOutputBuffer.isEmpty())
+                    {
+                        //We have data to send
+                        blesvcVSPService->writeCharacteristic(blechrRXChar, baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE)));
+                    }
                 }
                 else if (baData.at(0) == 0x00)
                 {
@@ -1250,11 +1309,16 @@ qDebug() << "Buf: " << baVersionResponse;
                 }
             }
         }
-        else
-        {
-            bVSPBlocked = false;
-            blesvcVSPService->writeCharacteristic(blechrRXChar, baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE)));
-        }
+//        else
+//        {
+//            //Other characteristic written
+//            bVSPBlocked = false;
+//            if (!baOutputBuffer.isEmpty())
+//            {
+//                //We have data to send
+//                blesvcVSPService->writeCharacteristic(blechrRXChar, baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE)));
+//            }
+//        }
     }
 }
 
@@ -1266,7 +1330,7 @@ MainWindow::VSPServiceCharacteristicWritten(
     QByteArray baData
     )
 {
-    //
+    //VSP characteristic written
     if (lecCharacteristic == blechrRXChar)
     {
         unWrittenBytes = unWrittenBytes + baData.length();
@@ -1276,7 +1340,9 @@ MainWindow::VSPServiceCharacteristicWritten(
             baRecBuffer.append(baData);
             TrucateRecBuffer();
         }
+#ifdef ENABLE_DEBUG
 //        qDebug() << "Wrote: " << baData;
+#endif
 
         if (tmrResponseTimeoutTimer->isActive())
         {
@@ -1291,7 +1357,7 @@ MainWindow::VSPServiceCharacteristicWritten(
             baOutputBuffer = baOutputBuffer.mid(baData.length());
             if (bVSPBlocked == false && baOutputBuffer.length() > 0)
             {
-                //
+                //Write next part of data
                 blesvcVSPService->writeCharacteristic(blechrRXChar, baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE)));
             }
         }
@@ -1301,12 +1367,12 @@ MainWindow::VSPServiceCharacteristicWritten(
             baOutputBuffer = baOutputBuffer.mid(baData.length());
             if (bVSPBlocked == false && baOutputBuffer.length() > 0)
             {
-                //
+                //Write next part of data
                 blesvcVSPService->writeCharacteristic(blechrRXChar, baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE)));
             }
             else if (baOutputBuffer.length() == 0)
             {
-                //
+                //Switch to verification mode
                 nCurrentMode = MAIN_MODE_VERIFYING;
                 if (balOutputBufferList.count() > 0)
                 {
@@ -1319,21 +1385,23 @@ MainWindow::VSPServiceCharacteristicWritten(
 
             if (!tmrDisplayUpdateTimer->isActive())
             {
+                //Start update display timer
                 tmrDisplayUpdateTimer->start();
             }
         }
         else if (nCurrentMode == MAIN_MODE_VERIFYING)
         {
+            //Verifying download was successful
             unTotalSizeSent += baData.length();
             baOutputBuffer = baOutputBuffer.mid(baData.length());
             if (bVSPBlocked == false && baOutputBuffer.length() > 0)
             {
-                //
+                //Write next part of data
                 blesvcVSPService->writeCharacteristic(blechrRXChar, baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE)));
             }
             else if (baOutputBuffer.length() == 0)
             {
-                //
+                //Check for more commands
                 if (balOutputBufferList.count() > 0)
                 {
                     //Send next command
@@ -1342,21 +1410,19 @@ MainWindow::VSPServiceCharacteristicWritten(
                     blesvcVSPService->writeCharacteristic(blechrRXChar, baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE)));
                 }
             }
-
-//            if (!tmrDisplayUpdateTimer->isActive())
-//            {
-//                tmrDisplayUpdateTimer->start();
-//            }
         }
         else if (nCurrentMode == MAIN_MODE_QUERY)
         {
+            //Querying module
             baOutputBuffer = baOutputBuffer.mid(baData.length());
             if (bVSPBlocked == false && baOutputBuffer.length() > 0)
             {
-                //
+                //Write next part of data
                 blesvcVSPService->writeCharacteristic(blechrRXChar, baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE)));
             }
         }
+
+        //Update Tx/Rx counts
         UpdateTxRx();
     }
 }
@@ -1369,11 +1435,12 @@ MainWindow::VSPServiceDescriptorWritten(
     QByteArray baData
     )
 {
-    //
+    //VSP descriptor written
     if (bHasModem == true)
     {
         if (ledDescriptor == blechrMOChar.descriptor(QBluetoothUuid::ClientCharacteristicConfiguration))
         {
+            //Modem out enabled
             baRecBuffer.append("(Now ready to send/receive!)\n");
             UpdateDisplay();
         }
@@ -1390,7 +1457,7 @@ MainWindow::VSPServiceError(
     QLowEnergyService::ServiceError nErrorCode
     )
 {
-    //Service error
+    //VSP Service error
 #ifdef ENABLE_DEBUG
     qDebug() << "BLE Service error: " << nErrorCode;
 #endif
@@ -1467,17 +1534,17 @@ MainWindow::VSPServiceStateChanged(
     QLowEnergyService::ServiceState nNewState
     )
 {
-    //Server state changed
+    //Service state changed
 #ifdef ENABLE_DEBUG
     qDebug() << "State: " << nNewState;
 #endif
     if (nNewState == QLowEnergyService::ServiceDiscovered)
     {
-        QLowEnergyService *service = qobject_cast<QLowEnergyService *>(sender());
+        QLowEnergyService *svcBLEService = qobject_cast<QLowEnergyService *>(sender());
 #ifdef ENABLE_DEBUG
-        qDebug() << "Service: " << service->serviceUuid() << ", looking for: " << QBluetoothUuid(stgSettingsHandle->GetString(SETTINGS_KEY_UUID));
+        qDebug() << "Service: " << svcBLEService->serviceUuid() << ", looking for: " << QBluetoothUuid(stgSettingsHandle->GetString(SETTINGS_KEY_UUID));
 #endif
-        if (service && service->serviceUuid() == QBluetoothUuid(stgSettingsHandle->GetString(SETTINGS_KEY_UUID)))
+        if (svcBLEService && svcBLEService->serviceUuid() == QBluetoothUuid(stgSettingsHandle->GetString(SETTINGS_KEY_UUID)))
         {
 #ifdef ENABLE_DEBUG
             qDebug() << "Tx: " << QString(stgSettingsHandle->GetString(SETTINGS_KEY_UUID).left(4)).append(stgSettingsHandle->GetString(SETTINGS_KEY_TX_OFFSET)).append(stgSettingsHandle->GetString(SETTINGS_KEY_UUID).right(28));
@@ -1487,11 +1554,11 @@ MainWindow::VSPServiceStateChanged(
             blechrRXChar = blesvcVSPService->characteristic(QBluetoothUuid(QString(stgSettingsHandle->GetString(SETTINGS_KEY_UUID).left(4)).append(stgSettingsHandle->GetString(SETTINGS_KEY_RX_OFFSET)).append(stgSettingsHandle->GetString(SETTINGS_KEY_UUID).right(28))));
 #ifdef ENABLE_DEBUG
             qint8 unTmp = 0;
-            while (unTmp < service->characteristics().count())
+            while (unTmp < svcBLEService->characteristics().count())
             {
                 qDebug() << "Char: " << unTmp;
-                qDebug() << service->characteristics().at(unTmp).uuid();
-                qDebug() << service->characteristics().at(unTmp).handle();
+                qDebug() << svcBLEService->characteristics().at(unTmp).uuid();
+                qDebug() << svcBLEService->characteristics().at(unTmp).handle();
                 ++unTmp;
             }
             qDebug() << blechrRXChar.handle();
@@ -1500,7 +1567,7 @@ MainWindow::VSPServiceStateChanged(
 
             if (blesvcVSPService->characteristic(QBluetoothUuid(QString(stgSettingsHandle->GetString(SETTINGS_KEY_UUID).left(4)).append(stgSettingsHandle->GetString(SETTINGS_KEY_MO_OFFSET)).append(stgSettingsHandle->GetString(SETTINGS_KEY_UUID).right(28)))).isValid())
             {
-                //VSP active
+                //Modem characteristics present
 #ifdef ENABLE_DEBUG
                 qDebug() << "-- MODEM -- ";
 #endif
@@ -1510,7 +1577,7 @@ MainWindow::VSPServiceStateChanged(
             }
             else
             {
-                //
+                //Modem characteristics not present
 #ifdef ENABLE_DEBUG
                 qDebug() << "-- NO MODEM -- ";
 #endif
@@ -1518,8 +1585,9 @@ MainWindow::VSPServiceStateChanged(
             }
             if (!blechrTXChar.isValid())
             {
+                //Missing Tx characteristic
 #ifdef ENABLE_DEBUG
-                qDebug() << "TX char missing.";
+                qDebug() << "Tx char missing.";
 #endif
                 if (bDisconnectActive == false)
                 {
@@ -1530,8 +1598,9 @@ MainWindow::VSPServiceStateChanged(
 
             if (!blechrRXChar.isValid())
             {
+                //Missing Rx characteristic
 #ifdef ENABLE_DEBUG
-                qDebug() << "RX char missing.";
+                qDebug() << "Rx char missing.";
 #endif
                 if (bDisconnectActive == false)
                 {
@@ -1542,8 +1611,10 @@ MainWindow::VSPServiceStateChanged(
 
             if (bHasModem == true)
             {
+                //VSP with modem in/out
                 if (!blechrMOChar.isValid())
                 {
+                    //Missing MO characteristic
 #ifdef ENABLE_DEBUG
                     qDebug() << "MO char missing.";
 #endif
@@ -1556,6 +1627,7 @@ MainWindow::VSPServiceStateChanged(
 
                 if (!blechrMIChar.isValid())
                 {
+                    //Missing MI characteristic
 #ifdef ENABLE_DEBUG
                     qDebug() << "MI char missing.";
 #endif
@@ -1567,12 +1639,14 @@ MainWindow::VSPServiceStateChanged(
                 }
             }
 
-            const QLowEnergyDescriptor TXDesc = blechrTXChar.descriptor(QBluetoothUuid::ClientCharacteristicConfiguration);
+            //Tx notifications descriptor
+            const QLowEnergyDescriptor descTXDesc = blechrTXChar.descriptor(QBluetoothUuid::ClientCharacteristicConfiguration);
 
-            if (!TXDesc.isValid())
+            if (!descTXDesc.isValid())
             {
+                //Tx descriptor missing
 #ifdef ENABLE_DEBUG
-                qDebug() << "TX desc missing.";
+                qDebug() << "Tx desc missing.";
 #endif
                 if (bDisconnectActive == false)
                 {
@@ -1583,10 +1657,11 @@ MainWindow::VSPServiceStateChanged(
 
             if (bHasModem == true)
             {
-                const QLowEnergyDescriptor MODesc = blechrMOChar.descriptor(QBluetoothUuid::ClientCharacteristicConfiguration);
+                const QLowEnergyDescriptor descMODesc = blechrMOChar.descriptor(QBluetoothUuid::ClientCharacteristicConfiguration);
 
-                if (!MODesc.isValid())
+                if (!descMODesc.isValid())
                 {
+                    //MO descriptor missing
 #ifdef ENABLE_DEBUG
                     qDebug() << "MO desc missing.";
 #endif
@@ -1596,11 +1671,13 @@ MainWindow::VSPServiceStateChanged(
                         lecBLEController->disconnectFromDevice();
                     }
                 }
-                blesvcVSPService->writeDescriptor(MODesc, QByteArray::fromHex("0100"));
+
+                //Enable notifications for MO
+                blesvcVSPService->writeDescriptor(descMODesc, QByteArray::fromHex("0100"));
             }
 
             //Enable Tx descriptor notifications
-            blesvcVSPService->writeDescriptor(TXDesc, QByteArray::fromHex("0100"));
+            blesvcVSPService->writeDescriptor(descTXDesc, QByteArray::fromHex("0100"));
 
             //Set status to idle
             bVSPBlocked = false;
@@ -1690,22 +1767,27 @@ MainWindow::on_btn_Scan_clicked(
             dlgScanDialog->ClearDevices();
             dlgScanDialog->SetStatus(STATUS_LOADING);
             dlgScanDialog->show();
+#ifdef Q_OS_ANDROID
             if (stgSettingsHandle->GetBool(SETTINGS_KEY_COMPATIBLESCAN) == false)
             {
+#endif
                 //Normal scanning
                 ddaDiscoveryAgent->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
 #ifdef ENABLE_DEBUG
-qDebug() << "Normal scanning started...";
+                qDebug() << "Normal scanning started...";
 #endif
+#ifdef Q_OS_ANDROID
             }
             else
             {
                 //Compatible scanning (fixed issues on Nexus 9 for unknown reasons)
                 ddaDiscoveryAgent->start();
 #ifdef ENABLE_DEBUG
-qDebug() << "Compatible scanning started...";
+                qDebug() << "Compatible scanning started...";
 #endif
             }
+#endif
+            //Now busy
             SetLoadingStatus(STATUS_LOADING);
         }
     }
@@ -1872,7 +1954,7 @@ MainWindow::ProcessFileData(
         }
 
 #ifdef ENABLE_DEBUG
-qDebug() << "Got: " << baFileData;
+        qDebug() << "Got: " << baFileData;
 #endif
 
         //Check available module space, if enabled
@@ -1934,7 +2016,9 @@ qDebug() << "Got: " << baFileData;
             }
 
             //Add the hex character to the string
+#ifdef ENABLE_DEBUG
 //            qDebug() << "Add: " << strThisHex;
+#endif
             gstrHexData.append(strThisHex.toUpper());
             ++i;
         }
@@ -1961,10 +2045,10 @@ qDebug() << "Got: " << baFileData;
         baOutputBuffer.append(QString("AT+fow \"").append(ui->edit_DownloadName->text()).append("\"\r"));
         while (gstrHexData.length() > 0)
         {
-            baOutputBuffer.append(QString("AT+fwrh \"").append(gstrHexData.length() > 56 ? gstrHexData.left(56) : gstrHexData).append("\"\r"));
-            if (gstrHexData.length() > 56)
+            baOutputBuffer.append(QString("AT+fwrh \"").append(gstrHexData.length() > MODULE_MAX_COMMAND_LENGTH ? gstrHexData.left(MODULE_MAX_COMMAND_LENGTH) : gstrHexData).append("\"\r"));
+            if (gstrHexData.length() > MODULE_MAX_COMMAND_LENGTH)
             {
-                gstrHexData = gstrHexData.right(gstrHexData.length() - 56);
+                gstrHexData = gstrHexData.right(gstrHexData.length() - MODULE_MAX_COMMAND_LENGTH);
             }
             else
             {
@@ -1993,18 +2077,18 @@ qDebug() << "Got: " << baFileData;
         baVersionResponse.clear();
 
         //Add in the length of all extra commands
-        qint8 abc = 0;
-        while (abc < balOutputBufferList.length())
+        i = 0;
+        while (i < balOutputBufferList.length())
         {
-            unTotalAppSize += balOutputBufferList[abc].length();
-            ++abc;
+            unTotalAppSize += balOutputBufferList[i].length();
+            ++i;
         }
 
         //Set mode to downloading application
         nCurrentMode = MAIN_MODE_DOWNLOADING;
 
 #ifdef ENABLE_DEBUG
-qDebug() << "nCurrentMode is now: " << nCurrentMode << ", Data: " << baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE));
+        qDebug() << "nCurrentMode is now: " << nCurrentMode << ", Data: " << baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE));
 #endif
 
         //Start writing the data
@@ -2017,10 +2101,6 @@ qDebug() << "nCurrentMode is now: " << nCurrentMode << ", Data: " << baOutputBuf
         //Output message
         gstrToastString = "Transferring OTA data...";
         ToastMessage(false);
-    }
-    else
-    {
-        //
     }
 }
 
@@ -2048,8 +2128,10 @@ MainWindow::on_btn_Download_clicked(
             {
                 //File doesn't exist
 #ifdef ENABLE_DEBUG
-                qDebug() << "File doesn't exist.";
+                qDebug() << "File doesn't exist: " << strLocalFilename;
 #endif
+                gstrToastString = QString("Selected file '").append(strLocalFilename).append("' does not exist.");
+                ToastMessage(false);
             }
 #endif
             else
@@ -2068,6 +2150,8 @@ MainWindow::on_btn_Download_clicked(
 #ifdef ENABLE_DEBUG
                         qDebug() << "Failed to open file.";
 #endif
+                        gstrToastString = QString("Failed to open file for reading - do you have access to this file?");
+                        ToastMessage(false);
                         return;
                     }
 
@@ -2174,6 +2258,7 @@ MainWindow::on_btn_Download_clicked(
         else if (nSelectedFileType == FILE_TYPE_DROPBOX)
         {
             //Dropbox file
+            //TODO
         }
 #endif
         else
@@ -2222,16 +2307,6 @@ MainWindow::on_btn_Settings_clicked(
     if (nCurrentMode == MAIN_MODE_IDLE)
     {
         //Not busy - show application settings
-        dlgSettingsView = new SettingsDialog(this);
-        connect(dlgSettingsView, SIGNAL(SaveSettings(QString,QString,QString,QString,QString,bool,
-#ifdef Q_OS_ANDROID
-            bool,
-#endif
-            quint8,bool,bool,quint8,bool,quint8,bool,bool,bool,bool)), this, SLOT(SettingsUpdated(QString,QString,QString,QString,QString,bool,
-#ifdef Q_OS_ANDROID
-            bool,
-#endif
-            quint8,bool,bool,quint8,bool,quint8,bool,bool,bool,bool)));
         dlgSettingsView->SetValues(stgSettingsHandle->GetString(SETTINGS_KEY_UUID), stgSettingsHandle->GetString(SETTINGS_KEY_TX_OFFSET), stgSettingsHandle->GetString(SETTINGS_KEY_RX_OFFSET), stgSettingsHandle->GetString(SETTINGS_KEY_MO_OFFSET), stgSettingsHandle->GetString(SETTINGS_KEY_MI_OFFSET), stgSettingsHandle->GetBool(SETTINGS_KEY_RESTRICTUUID),
 #ifdef Q_OS_ANDROID
             stgSettingsHandle->GetBool(SETTINGS_KEY_COMPATIBLESCAN),
@@ -2260,7 +2335,7 @@ MainWindow::AndroidOpen(
         //Provided filename is valid
         if (baReturnedFileData.length() > FILESIZE_MIN && baReturnedFileData.length() < FILESIZE_MAX)
         {
-            //Valid filesize
+            //Valid file size
             strLocalFilename = strFilename;
             QFontMetrics fmFontMet(ui->label_Filename->font());
             ui->label_Filename->setText(fmFontMet.elidedText(strFilename, Qt::ElideMiddle, ui->label_Filename->maximumWidth()));
@@ -2270,14 +2345,20 @@ MainWindow::AndroidOpen(
             qDebug() << "Got: " << strFilename;
 #endif
             nSelectedFileType = FILE_TYPE_LOCALFILE;
+
+            //Get the shortened filename of the application
+            ui->edit_DownloadName->setText(strLocalFilename.left(strLocalFilename.indexOf(".")));
+
+            //Read the data into the byte array
+            baFileData.clear();
+            baFileData = baReturnedFileData;
         }
-
-        //Get the shortened filename of the application
-        ui->edit_DownloadName->setText(strLocalFilename.left(strLocalFilename.indexOf(".")));
-
-        //
-        baFileData.clear();
-        baFileData = baReturnedFileData;
+        else
+        {
+            //File size is not valid
+            gstrToastString = QString("Invalid filesize, must be between ").append(QString::number(FILESIZE_MIN)).append(" - ").append(QString::number(FILESIZE_MAX)).append(" bytes.");
+            ToastMessage(false);
+        }
     }
     else
     {
@@ -2319,16 +2400,6 @@ MainWindow::SettingsUpdated(
     )
 {
     //Callback for settings being updated
-    disconnect(dlgSettingsView, SIGNAL(SaveSettings(QString,QString,QString,QString,QString,bool,
-#ifdef Q_OS_ANDROID
-        bool,
-#endif
-        quint8,bool,bool,quint8,bool,quint8,bool,bool,bool,bool)), this, SLOT(SettingsUpdated(QString,QString,QString,QString,QString,bool,
-#ifdef Q_OS_ANDROID
-        bool,
-#endif
-        quint8,bool,bool,quint8,bool,quint8,bool,bool,bool,bool)));
-
     if (strVSPUUID != NULL)
     {
         //Update settings
@@ -2355,9 +2426,6 @@ MainWindow::SettingsUpdated(
         //Change SSL option
         dwnDownloaderHandle->SetSSLSupport(bSSL);
     }
-
-    //Clean up the settings dialog in the main event loop
-    dlgSettingsView->deleteLater();
 }
 
 //=============================================================================
@@ -2399,8 +2467,8 @@ MainWindow::ToastMessage(
         Toast.callMethod<void>("show");
     });
 #else
-    //Other OS
-    //TODO
+    //Other OS, not strictly a toast notification...
+    ui->label_Notification->setText(gstrToastString);
 #endif
 }
 
@@ -2508,12 +2576,53 @@ MainWindow::FileTypeChanged(
             QMessageBox::critical(this, "Error opening file selector", "An error occured whilst attempting to open the Android File Selector dialogue, please report this issue including details of which device you are using it on and what the firmware version is.", QMessageBox::Ok, QMessageBox::NoButton);
         }
 #else
-        //
-        QString Filename = QFileDialog::getOpenFileName(this, "Select application", stgSettingsHandle->GetString(SETTINGS_KEY_LASTDIR), "smartBASIC Source/Application (*.sb, *.uwc);;All Files (*.*)", NULL);
-        if (!Filename.isEmpty() && !Filename.isNull())
+        //Other OS
+        QString strFilename = QFileDialog::getOpenFileName(this, "Select application", stgSettingsHandle->GetString(SETTINGS_KEY_LASTDIR), "smartBASIC Source/Application (*.sb *.uwc);;All Files (*.*)", NULL);
+        if (!strFilename.isEmpty() && !strFilename.isNull())
         {
             //File selected
-            stgSettingsHandle->SetString(SETTINGS_KEY_LASTDIR, Filename.left(Filename.lastIndexOf("/")));
+            stgSettingsHandle->SetString(SETTINGS_KEY_LASTDIR, strFilename.left(strFilename.lastIndexOf("/")));
+
+            //Provided filename is valid, check size of file
+            QFile fileDataFile(strFilename);
+            if (fileDataFile.size() > FILESIZE_MIN && fileDataFile.size() < FILESIZE_MAX)
+            {
+                //Valid file size
+                if (fileDataFile.open(QIODevice::ReadOnly))
+                {
+                    //File can be opened
+                    strLocalFilename = strFilename;
+                    ui->label_Filename->setText(strFilename.right(strFilename.length() - strFilename.lastIndexOf("/") - 1));
+
+                    //Get the shortened filename of the application
+                    ui->edit_DownloadName->setText(ui->label_Filename->text().left(ui->label_Filename->text().indexOf(".")));
+
+                    //Reduce the size of the filename and path if it is too big
+                    QFontMetrics fmFontMet(ui->label_Filename->font());
+                    ui->label_Filename->setText(fmFontMet.elidedText(ui->label_Filename->text(), Qt::ElideMiddle, ui->label_Filename->maximumWidth()));
+                    ui->label_Filesize->setText(QString::number(fileDataFile.size()));
+
+#ifdef ENABLE_DEBUG
+                    qDebug() << "Got: " << strFilename;
+#endif
+                    nSelectedFileType = FILE_TYPE_LOCALFILE;
+
+                    //Close file
+                    fileDataFile.close();
+                }
+                else
+                {
+                    //Unable to open file for reading
+                    gstrToastString = QString("Failed to open ").append(strFilename).append(" for reading, do you have permission to this file?");
+                    ToastMessage(false);
+                }
+            }
+            else
+            {
+                //Invalid file size
+                gstrToastString = QString("Invalid filesize, must be between ").append(QString::number(FILESIZE_MIN)).append(" - ").append(QString::number(FILESIZE_MAX)).append(" bytes.");
+                ToastMessage(false);
+            }
         }
 #endif
     }
@@ -2631,15 +2740,15 @@ MainWindow::FileDownloaded(
 
                 while (i < baDownloadedFileData.length())
                 {
-                    quint8 ThisByte = baDownloadedFileData[i];
+                    quint8 unThisByte = baDownloadedFileData[i];
                     if (stgSettingsHandle->GetBool(SETTINGS_KEY_VERIFYFILE) == true)
                     {
                         //Add to checksum
-                        chkChecksum->AddByte(ThisByte);
+                        chkChecksum->AddByte(unThisByte);
                     }
 
                     QString strThisHex;
-                    strThisHex.setNum(ThisByte, 16);
+                    strThisHex.setNum(unThisByte, 16);
                     if (strThisHex.length() == 1)
                     {
                         //Expand to 2 characters
@@ -2647,7 +2756,9 @@ MainWindow::FileDownloaded(
                     }
 
                     //Add the hex character to the string
+#ifdef ENABLE_DEBUG
 //                    qDebug() << "Add: " << strThisHex;
+#endif
                     gstrHexData.append(strThisHex.toUpper());
                     ++i;
                 }
@@ -2673,10 +2784,10 @@ MainWindow::FileDownloaded(
                 baOutputBuffer.append(QString("AT+fow \"").append(ui->edit_DownloadName->text()).append("\"\r"));
                 while (gstrHexData.length() > 0)
                 {
-                    baOutputBuffer.append(QString("AT+fwrh \"").append(gstrHexData.length() > 56 ? gstrHexData.left(56) : gstrHexData).append("\"\r"));
-                    if (gstrHexData.length() > 56)
+                    baOutputBuffer.append(QString("AT+fwrh \"").append(gstrHexData.length() > MODULE_MAX_COMMAND_LENGTH ? gstrHexData.left(MODULE_MAX_COMMAND_LENGTH) : gstrHexData).append("\"\r"));
+                    if (gstrHexData.length() > MODULE_MAX_COMMAND_LENGTH)
                     {
-                        gstrHexData = gstrHexData.right(gstrHexData.length() - 56);
+                        gstrHexData = gstrHexData.right(gstrHexData.length() - MODULE_MAX_COMMAND_LENGTH);
                     }
                     else
                     {
@@ -2707,7 +2818,7 @@ MainWindow::FileDownloaded(
                 nCurrentMode = MAIN_MODE_DOWNLOADING;
 
 #ifdef ENABLE_DEBUG
-qDebug() << "nCurrentMode is now: " << nCurrentMode << ", Data: " << baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE));
+                qDebug() << "nCurrentMode is now: " << nCurrentMode << ", Data: " << baOutputBuffer.left(stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE));
 #endif
 
                 //Start writing the data
@@ -2772,8 +2883,6 @@ qDebug() << "nCurrentMode is now: " << nCurrentMode << ", Data: " << baOutputBuf
     else
     {
         //Response received but device has disconnected
-//        gstrToastString = "";
-//        ToastMessage(false);
     }
 }
 
@@ -2807,6 +2916,10 @@ MainWindow::DownloaderStatusChanged(
         gstrToastString = "Downloading remote file...";
         ToastMessage(false);
     }
+    else if (unStatus == DOWNLOAD_MODE_LATEST_FIRMWARE)
+    {
+        //Unused
+    }
 }
 
 //=============================================================================
@@ -2815,10 +2928,10 @@ void
 MainWindow::StartupTimerElapsed(
     )
 {
-    //
+    //Startup timer has elapsed, reduce maximum width of the filename label
     ui->label_Filename->setMaximumWidth(ui->label_Filename->width() - 40);
 
-    //
+    //Clean up
     disconnect(tmrStartupTimer, SIGNAL(timeout()), this, SLOT(StartupTimerElapsed()));
     delete tmrStartupTimer;
     tmrStartupTimer = NULL;
@@ -2891,7 +3004,7 @@ void
 MainWindow::FileTypeSelectionFixBrokenQtTextHeightTimerElapsed(
     )
 {
-    //Fix for some bug in Qt which decies to cut the top and bottom of word-wrapped text off
+    //Fix for some bug in Qt which decies to cut the top and bottom of word-wrapped text off QTBUG-58503
     disconnect(this, SLOT(FileTypeSelectionFixBrokenQtTextHeightTimerElapsed()));
     dlgFileTypeDialog->FixBrokenQtTextHeight();
     delete tmrStartupTimer;

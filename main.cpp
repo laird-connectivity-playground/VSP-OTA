@@ -31,6 +31,7 @@ main(
     char *argv[]
     )
 {
+    //Start Qt application execution
     QApplication a(argc, argv);
     MainWindow w;
     w.show();

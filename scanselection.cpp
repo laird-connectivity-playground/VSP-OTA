@@ -30,13 +30,13 @@ ScanSelection::ScanSelection(QWidget *parent) : QDialog(parent), ui(new Ui::Scan
 
 #ifdef Q_OS_ANDROID
     //Make the dialogue stand out on android platforms
-    QPalette CPalette = this->palette();
-    QColor CColor = CPalette.color(QPalette::Active, QPalette::Window).toRgb();
-    CColor.setRed(CColor.red()-15);
-    CColor.setBlue(CColor.blue()-15);
-    CColor.setGreen(CColor.green()-15);
-    CPalette.setColor(QPalette::Active, QPalette::Window, CColor);
-    this->setPalette(CPalette);
+    QPalette palCPalette = this->palette();
+    QColor colCColor = palCPalette.color(QPalette::Active, QPalette::Window).toRgb();
+    colCColor.setRed(colCColor.red()-15);
+    colCColor.setBlue(colCColor.blue()-15);
+    colCColor.setGreen(colCColor.green()-15);
+    palCPalette.setColor(QPalette::Active, QPalette::Window, colCColor);
+    this->setPalette(palCPalette);
 #endif
 
 #ifdef Q_OS_ANDROID
@@ -58,44 +58,39 @@ ScanSelection::~ScanSelection(
 //=============================================================================
 void
 ScanSelection::AddDevice(
-    QBluetoothDeviceInfo DeviceInfo
+    QBluetoothDeviceInfo diDeviceInfo
     )
 {
     //Adds device to selection list
     int i = 0;
-    while (i < DeviceArray.count())
+    while (i < lstDeviceArray.count())
     {
 #ifdef Q_OS_MAC
-        if (DeviceArray[i].DeviceUUID == DeviceInfo.deviceUuid())
+        if (lstDeviceArray[i].diDeviceInfo.deviceUuid() == diDeviceInfo.deviceUuid())
 #else
-        if (DeviceArray[i].DeviceAddress == DeviceInfo.address())
+        if (lstDeviceArray[i].diDeviceInfo.address() == diDeviceInfo.address())
 #endif
         {
             //Update
-            DeviceArray[i].DeviceInfo = DeviceInfo;
+            lstDeviceArray[i].diDeviceInfo = diDeviceInfo;
 #ifdef Q_OS_MAC
-            ui->list_Devices->item(i)->setText(QString(DeviceInfo.name()).append(" (").append(QString::number(DeviceInfo.rssi())).append(")"));
+            ui->list_Devices->item(i)->setText(QString(diDeviceInfo.name()).append(" (").append(QString::number(diDeviceInfo.rssi())).append(")"));
 #else
-            ui->list_Devices->item(i)->setText(QString(DeviceInfo.address().toString()).append(": ").append(DeviceInfo.name()).append(" (").append(QString::number(DeviceInfo.rssi())).append(")"));
+            ui->list_Devices->item(i)->setText(QString(diDeviceInfo.address().toString()).append(": ").append(diDeviceInfo.name()).append(" (").append(QString::number(diDeviceInfo.rssi())).append(")"));
 #endif
             return;
         }
         ++i;
     }
 
-    //
-    DeviceInfoStruct tmpstruct;
+    //Append to array
+    DeviceInfoStruct disNewDevice;
+    disNewDevice.diDeviceInfo = diDeviceInfo;
+    lstDeviceArray.append(disNewDevice);
 #ifdef Q_OS_MAC
-    tmpstruct.DeviceUUID = DeviceInfo.deviceUuid();
+    ui->list_Devices->addItem(QString(diDeviceInfo.name()).append(" (").append(QString::number(diDeviceInfo.rssi())).append(")"));
 #else
-    tmpstruct.DeviceAddress = DeviceInfo.address();
-#endif
-    tmpstruct.DeviceInfo = DeviceInfo;
-    DeviceArray.append(tmpstruct);
-#ifdef Q_OS_MAC
-    ui->list_Devices->addItem(QString(DeviceInfo.name()).append(" (").append(QString::number(DeviceInfo.rssi())).append(")"));
-#else
-    ui->list_Devices->addItem(QString(DeviceInfo.address().toString()).append(": ").append(DeviceInfo.name()).append(" (").append(QString::number(DeviceInfo.rssi())).append(")"));
+    ui->list_Devices->addItem(QString(diDeviceInfo.address().toString()).append(": ").append(diDeviceInfo.name()).append(" (").append(QString::number(diDeviceInfo.rssi())).append(")"));
 #endif
 }
 
@@ -107,7 +102,7 @@ ScanSelection::ClearDevices(
 {
     //Clears list of devices
     ui->list_Devices->clear();
-    DeviceArray.clear();
+    lstDeviceArray.clear();
 }
 
 //=============================================================================
@@ -120,7 +115,7 @@ ScanSelection::on_btn_OK_clicked(
     if (ui->list_Devices->currentRow() >= 0)
     {
         //A row is selected
-        emit DeviceSelected(DeviceArray.at(ui->list_Devices->currentRow()).DeviceInfo);
+        emit DeviceSelected(lstDeviceArray.at(ui->list_Devices->currentRow()).diDeviceInfo);
         this->hide();
     }
 }
@@ -151,19 +146,19 @@ ScanSelection::on_list_Devices_itemDoubleClicked(
 //=============================================================================
 void
 ScanSelection::SetStatus(
-    qint8 NewStatus
+    qint8 nNewStatus
     )
 {
     //Change the status text
-    if (NewStatus == STATUS_LOADING)
+    if (nNewStatus == STATUS_LOADING)
     {
         ui->label_Status->setText("Scanning...");
     }
-    else if (NewStatus == STATUS_STANDBY)
+    else if (nNewStatus == STATUS_STANDBY)
     {
         ui->label_Status->setText("Finished scanning.");
     }
-    emit ScanningFinished(NewStatus);
+    emit ScanningFinished(nNewStatus);
 }
 
 /******************************************************************************/

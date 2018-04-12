@@ -112,10 +112,6 @@ private slots:
     on_btn_Defaults_clicked(
         );
     void
-    on_check_XCompile_stateChanged(
-        int
-        );
-    void
     on_btn_About_clicked(
         );
 

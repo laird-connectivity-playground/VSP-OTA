@@ -79,7 +79,7 @@ AndroidFileDialog::ResultReceiver::handleActivityResult(
             }
         }
 #ifdef ENABLE_DEBUG
-qDebug() << "Got filename as: " << strFilename;
+        qDebug() << "Got filename as: " << strFilename;
 #endif
         _dialog->emitExistingFileNameReady(strFilename, baFileData);
     }

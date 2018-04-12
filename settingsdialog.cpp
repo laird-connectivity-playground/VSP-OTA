@@ -188,24 +188,11 @@ SettingsDialog::on_btn_Defaults_clicked(
 //=============================================================================
 //=============================================================================
 void
-SettingsDialog::on_check_XCompile_stateChanged(
-    int
-    )
-{
-    //Enable XCompilation checkbox state changed
-#ifdef UseSSL
-    ui->check_SSL->setEnabled(ui->check_XCompile->isChecked());
-#endif
-}
-
-//=============================================================================
-//=============================================================================
-void
 SettingsDialog::on_btn_About_clicked(
     )
 {
     //Show information on application
-    QMessageBox::information(this, "About Laird OTA VSP", QString("Laird OTA VSP v").append(APP_VERSION).append(" is a Qt-based GPLv3 licensed (not including later versions) open-source application for customers to use and modify for online XCompilation and downloading of smartBASIC files to Laird's wireless Bluetooth modules. The source code for this project can be freely viewed and downloaded from Github: <X>.\r\n\r\nPlease note that online requests to the XCompilation server will store the HTTP headers from your request (IP address, time/date of access, header size, browser and operating system) on the server, temporary storage is used for storing uploaded and XCompiled application data which is purged from the server after the data has been sent back to your client device. Submitted applications are not stored or analysed beyond what is required for the XCompilation process.\r\n\r\nFor license information on software libraries that are integrated into this application, please check the help documentation from the startup screen of the application."), QMessageBox::Ok, QMessageBox::NoButton);
+    QMessageBox::information(this, "About Laird OTA VSP", QString("Laird OTA VSP v").append(APP_VERSION).append(" is a Qt-based GPLv3 licensed (not including later versions) open-source application for customers to use and modify for online XCompilation and downloading of smartBASIC files to Laird's wireless Bluetooth modules. The source code for this project can be freely viewed and downloaded from Github: https://github.com/LairdCP/Laird_OTA_VSP\r\n\r\nPlease note that online requests to the XCompilation server will store the HTTP headers from your request (IP address, time/date of access, header size, browser and operating system) on the server, temporary storage is used for storing uploaded and XCompiled application data which is purged from the server after the data has been sent back to your client device. Submitted applications are not stored or analysed beyond what is required for the XCompilation process.\r\n\r\nFor license information on software libraries that are integrated into this application, please check the help documentation from the startup screen of the application."), QMessageBox::Ok, QMessageBox::NoButton);
 }
 
 /******************************************************************************/
