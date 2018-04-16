@@ -38,11 +38,6 @@ ScanSelection::ScanSelection(QWidget *parent) : QDialog(parent), ui(new Ui::Scan
     palCPalette.setColor(QPalette::Active, QPalette::Window, colCColor);
     this->setPalette(palCPalette);
 #endif
-
-#ifdef Q_OS_ANDROID
-    //Set screen size appropriately
-    this->setFixedSize((QApplication::desktop()->availableGeometry().width()*75/100), (QApplication::desktop()->availableGeometry().height()*75/100));
-#endif
 }
 
 //=============================================================================
@@ -160,6 +155,18 @@ ScanSelection::SetStatus(
     }
     emit ScanningFinished(nNewStatus);
 }
+
+//=============================================================================
+//=============================================================================
+#ifdef Q_OS_ANDROID
+void
+ScanSelection::UpdateWindowSize(
+    )
+{
+    //Set screen size appropriately
+    this->setFixedSize((QApplication::desktop()->availableGeometry().width()*75/100), (QApplication::desktop()->availableGeometry().height()*75/100));
+}
+#endif
 
 /******************************************************************************/
 // END OF FILE

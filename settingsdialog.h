@@ -76,6 +76,11 @@ public:
         bool bFreeSpaceCheck,
         QString strDatabaseVersion
         );
+#ifdef Q_OS_ANDROID
+    void
+    UpdateWindowSize(
+        );
+#endif
 
 signals:
     void

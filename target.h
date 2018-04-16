@@ -44,7 +44,7 @@
 // Constants
 /******************************************************************************/
 //Version of the application
-const QString APP_VERSION                    = "0.95";
+const QString APP_VERSION                    = "0.96";
 
 //Download actions
 const quint8  DOWNLOAD_ACTION_NOTHING        = 0;
@@ -95,8 +95,19 @@ const quint8  STATUS_STANDBY                 = 0;
 const quint8  STATUS_LOADING                 = 1;
 
 //Values for loading image (in status bar) size
-const int     LOADING_IMAGE_WIDTH            = 32;
-const int     LOADING_IMAGE_HEIGHT           = 32;
+#if defined(Q_OS_ANDROID)
+    //Android
+    const int     LOADING_IMAGE_WIDTH            = 32;
+    const int     LOADING_IMAGE_HEIGHT           = 32;
+#elif defined(Q_OS_IOS)
+    //iOS
+    const int     LOADING_IMAGE_WIDTH            = 16;
+    const int     LOADING_IMAGE_HEIGHT           = 16;
+#else
+    //Other OS
+    const int     LOADING_IMAGE_WIDTH            = 12;
+    const int     LOADING_IMAGE_HEIGHT           = 12;
+#endif
 
 //Minimum and maximum size of valid sb/uwc files (in bytes) - 384KB
 const qint32  FILESIZE_MIN                   = 0;

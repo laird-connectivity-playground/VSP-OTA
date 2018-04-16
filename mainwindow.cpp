@@ -33,11 +33,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     //Setup GUI
     ui->setupUi(this);
 
+#ifdef Q_OS_IOS
+    //Connect signal handler for file selection
+    QDesktopServices::setUrlHandler("file", this, "StartupFileLoad");
+#endif
+
     //Load the images/animations
     LoadImages();
 
     //Add loading image to the status bar
     labelStatusBarLoader = new QLabel();
+    labelStatusBarLoader->setScaledContents(false);
     ui->statusBar->findChild<QHBoxLayout *>()->insertWidget(0, labelStatusBarLoader);
 
     //Change image to standby
@@ -53,8 +59,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     nCurrentMode = MAIN_MODE_IDLE;
     ui->btn_Cancel->setEnabled(false);
 
+#if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
     //Update window title with version
     this->setWindowTitle(this->windowTitle().append(", ").append(APP_VERSION));
+#endif
 
     //Clear variables
     unWrittenBytes = 0;
@@ -190,7 +198,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     //Calculate space required for loading image
     QFontMetrics fmFontMet(ui->statusBar->font());
-    nStatusBarSpaces = ceilf((32.0 / (float)fmFontMet.width(" ")));
+    nStatusBarSpaces = ceilf(((float)LOADING_IMAGE_WIDTH / (float)fmFontMet.width(" ")));
 
 #if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
     //Show application version
@@ -333,6 +341,11 @@ MainWindow::~MainWindow(
         delete dlgSettingsView;
         dlgSettingsView = NULL;
     }
+
+#ifdef Q_OS_IOS
+    //Disconnect startup URL opener
+    disconnect(this, SLOT(StartupFileLoad(const QUrl)));
+#endif
 
     //Remove added objects
     ui->statusBar->removeWidget(labelStatusBarLoader);
@@ -1766,6 +1779,9 @@ MainWindow::on_btn_Scan_clicked(
         {
             dlgScanDialog->ClearDevices();
             dlgScanDialog->SetStatus(STATUS_LOADING);
+#ifdef Q_OS_ANDROID
+            dlgScanDialog->UpdateWindowSize();
+#endif
             dlgScanDialog->show();
 #ifdef Q_OS_ANDROID
             if (stgSettingsHandle->GetBool(SETTINGS_KEY_COMPATIBLESCAN) == false)
@@ -1836,7 +1852,7 @@ MainWindow::UpdateTxRx(
     )
 {
     //Updates the Tx/Rx count message
-    ui->statusBar->showMessage(QString(" ").repeated(nStatusBarSpaces).append("Tx: ").append(QString::number(unWrittenBytes)).append(", Rx: ").append(QString::number(unRecDatSize)).append(", Tx Remaining: ").append(QString::number(unTotalAppSize - unTotalSizeSent)).append(", ").append(QString::number((unTotalAppSize == 0 ? 0 : (unTotalSizeSent * 100 / unTotalAppSize)))).append("% complete."));
+    ui->statusBar->showMessage(QString(" ").repeated(nStatusBarSpaces).append("Tx: ").append(QString::number(unWrittenBytes)).append(", Rx: ").append(QString::number(unRecDatSize)).append(", Remaining: ").append(QString::number(unTotalAppSize - unTotalSizeSent)).append(", ").append(QString::number((unTotalAppSize == 0 ? 0 : (unTotalSizeSent * 100 / unTotalAppSize)))).append("% complete."));
 }
 
 //=============================================================================
@@ -2136,32 +2152,33 @@ MainWindow::on_btn_Download_clicked(
 #endif
             else
             {
+#ifndef Q_OS_ANDROID
+                //Load file data - the android file selection code has already loaded this so it is only required for non-Android devices
+                baFileData.clear();
+                QFile FileHandle;
+                FileHandle.setFileName(strLocalFilename);
+                if (!FileHandle.open(QFile::ReadOnly | QFile::Text))
+                {
+                    //Failed to open file for reading
+#ifdef ENABLE_DEBUG
+                    qDebug() << "Failed to open file.";
+#endif
+                    gstrToastString = QString("Failed to open file for reading - do you have access to this file?");
+                    ToastMessage(false);
+                    return;
+                }
+
+                //Read contents into byte array
+                baFileData = FileHandle.readAll();
+
+                //Close file handle
+                FileHandle.close();
+#endif
+
                 //Is this a source file or compiled application
                 if (stgSettingsHandle->GetBool(SETTINGS_KEY_ONLINEXCOMP) == true && (strLocalFilename.right(3).toLower() == ".sb" || strLocalFilename.right(4).toLower() == ".txt"))
                 {
                     //Source file and XCompilation enabled, load file data into byte array
-#ifndef Q_OS_ANDROID
-                    baFileData.clear();
-                    QFile FileHandle;
-                    FileHandle.setFileName(strLocalFilename);
-                    if (!FileHandle.open(QFile::ReadOnly | QFile::Text))
-                    {
-                        //Failed ot open file for reading
-#ifdef ENABLE_DEBUG
-                        qDebug() << "Failed to open file.";
-#endif
-                        gstrToastString = QString("Failed to open file for reading - do you have access to this file?");
-                        ToastMessage(false);
-                        return;
-                    }
-
-                    //Read contents into byte array
-                    baFileData = FileHandle.readAll();
-
-                    //Close file handle
-                    FileHandle.close();
-#endif
-                    //Set status to busy
                     SetLoadingStatus(STATUS_LOADING);
 
 #ifdef ENABLE_DEBUG
@@ -2312,6 +2329,9 @@ MainWindow::on_btn_Settings_clicked(
             stgSettingsHandle->GetBool(SETTINGS_KEY_COMPATIBLESCAN),
 #endif
             stgSettingsHandle->GetUInt(SETTINGS_KEY_PACKETSIZE), stgSettingsHandle->GetBool(SETTINGS_KEY_DELFILE), stgSettingsHandle->GetBool(SETTINGS_KEY_VERIFYFILE), stgSettingsHandle->GetUInt(SETTINGS_KEY_DOWNLOADACTION), stgSettingsHandle->GetBool(SETTINGS_KEY_SKIPDLDISPLAY), stgSettingsHandle->GetUInt(SETTINGS_KEY_SCROLLBACKSIZE), stgSettingsHandle->GetBool(SETTINGS_KEY_ONLINEXCOMP), stgSettingsHandle->GetBool(SETTINGS_KEY_SSL), stgSettingsHandle->GetBool(SETTINGS_KEY_CHECKFWVERSION), stgSettingsHandle->GetBool(SETTINGS_KEY_CHECKFREESPACE), elErrorLookupHandle.DatabaseVersion());
+#ifdef Q_OS_ANDROID
+        dlgSettingsView->UpdateWindowSize();
+#endif
         dlgSettingsView->show();
     }
 }
@@ -2483,7 +2503,8 @@ MainWindow::LoadImages(
     movieLoadingAnimation->setScaledSize(QSize(LOADING_IMAGE_WIDTH, LOADING_IMAGE_HEIGHT));
 
     //Load the stanby picture
-    pixmapStandbyPicture = new QPixmap(":/Internal/standby.png");
+    QPixmap pixmapTmp = QPixmap(":/Internal/standby.png");
+    pixmapStandbyPicture = new QPixmap(pixmapTmp.scaled(LOADING_IMAGE_WIDTH, LOADING_IMAGE_HEIGHT));
 }
 
 //=============================================================================
@@ -2564,7 +2585,7 @@ MainWindow::FileTypeChanged(
     //Type of file changed - show file selection dialog
     if (nFileType == FILE_TYPE_LOCALFILE)
     {
-#ifdef Q_OS_ANDROID
+#if defined(Q_OS_ANDROID)
         //Android
         afdFileDialog = new AndroidFileDialog();
         connect(afdFileDialog, SIGNAL(existingFileNameReady(QString,QByteArray)), this, SLOT(AndroidOpen(QString,QByteArray)));
@@ -2575,6 +2596,9 @@ MainWindow::FileTypeChanged(
             delete afdFileDialog;
             QMessageBox::critical(this, "Error opening file selector", "An error occured whilst attempting to open the Android File Selector dialogue, please report this issue including details of which device you are using it on and what the firmware version is.", QMessageBox::Ok, QMessageBox::NoButton);
         }
+#elif defined(Q_OS_IOS)
+        //iOS
+        //TODO
 #else
         //Other OS
         QString strFilename = QFileDialog::getOpenFileName(this, "Select application", stgSettingsHandle->GetString(SETTINGS_KEY_LASTDIR), "smartBASIC Source/Application (*.sb *.uwc);;All Files (*.*)", NULL);
@@ -3140,6 +3164,65 @@ MainWindow::TrucateRecBuffer(
         }
     }
 }
+
+//=============================================================================
+//=============================================================================
+#ifdef Q_OS_IOS
+void
+MainWindow::StartupFileLoad(
+    const QUrl &urlFileURL
+    )
+{
+    //Function for iOS to deal with "open with..." actions from other applications
+    QString strTmpFilename = urlFileURL.toString();
+    if (strTmpFilename.length() > 7 && strTmpFilename.left(7) == "file://")
+    {
+        //Remove file prefix
+        strTmpFilename = strTmpFilename.right(strTmpFilename.length() - 7);
+    }
+
+    //Check file properties
+    QFile fileDataFile(strTmpFilename);
+    if (fileDataFile.size() > FILESIZE_MIN && fileDataFile.size() < FILESIZE_MAX)
+    {
+        //Valid file size
+        if (fileDataFile.open(QIODevice::ReadOnly))
+        {
+            //File can be opened
+            strLocalFilename = strTmpFilename;
+            ui->label_Filename->setText(strLocalFilename.right(strLocalFilename.length() - strLocalFilename.lastIndexOf("/") - 1));
+
+            //Get the shortened filename of the application
+            ui->edit_DownloadName->setText(ui->label_Filename->text().left(ui->label_Filename->text().indexOf(".")));
+
+            //Reduce the size of the filename and path if it is too big
+            QFontMetrics fmFontMet(ui->label_Filename->font());
+            ui->label_Filename->setText(fmFontMet.elidedText(ui->label_Filename->text(), Qt::ElideMiddle, ui->label_Filename->maximumWidth()));
+            ui->label_Filesize->setText(QString::number(fileDataFile.size()));
+
+#ifdef ENABLE_DEBUG
+            qDebug() << "Got: " << strLocalFilename;
+#endif
+            nSelectedFileType = FILE_TYPE_LOCALFILE;
+
+            //Close file
+            fileDataFile.close();
+        }
+        else
+        {
+            //Unable to open file for reading
+            gstrToastString = QString("Access to passed file is not valid, failed to read file data.");
+            ToastMessage(false);
+        }
+    }
+    else
+    {
+        //Invalid file size
+        gstrToastString = QString("Invalid filesize, must be between ").append(QString::number(FILESIZE_MIN)).append(" - ").append(QString::number(FILESIZE_MAX)).append(" bytes.");
+        ToastMessage(false);
+    }
+}
+#endif
 
 /******************************************************************************/
 // END OF FILE

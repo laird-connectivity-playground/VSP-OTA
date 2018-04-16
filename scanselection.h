@@ -75,6 +75,11 @@ public:
     SetStatus(
         qint8 nNewStatus
         );
+#ifdef Q_OS_ANDROID
+    void
+    UpdateWindowSize(
+        );
+#endif
 
 signals:
     void

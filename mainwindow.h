@@ -39,7 +39,9 @@
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QScrollBar>
+#if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
 #include <QFileDialog>
+#endif
 #include <math.h>
 #include "downloader.h"
 #include "scanselection.h"
@@ -56,6 +58,10 @@
 #include <QtAndroid>
 #include <QAndroidActivityResultReceiver>
 #include "androidfiledialog.h"
+#endif
+
+#ifdef Q_OS_IOS
+#include <QDesktopServices>
 #endif
 
 /******************************************************************************/
@@ -260,6 +266,12 @@ private slots:
     void
     TrucateRecBuffer(
         );
+#ifdef Q_OS_IOS
+    void
+    StartupFileLoad(
+        const QUrl &urlFileURL
+        );
+#endif
 
 private:
     void
